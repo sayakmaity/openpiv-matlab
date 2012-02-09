@@ -22,7 +22,7 @@ function varargout = openpiv_gui(varargin)
 
 % Edit the above text to modify the response to help openpiv_gui
 
-% Last Modified by GUIDE v2.5 05-Feb-2012 00:59:10
+% Last Modified by GUIDE v2.5 10-Feb-2012 00:51:10
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -208,7 +208,7 @@ set(handles.figure1,'pointer','watch')
 
 image1 = fullfile(handles.path,handles.files{1});
 image2 = fullfile(handles.path,handles.files{2});
-[a,b,a1,b1] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+[a,b,~,b1] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
 if isempty(a) || isempty(b)
     errordlg('Something wrong with your images')
 end
@@ -364,8 +364,9 @@ switch handles.filesType
             % Only for final, filtered and interpolated data
             %    imshow(a,[]);
             %    hold on
-            quiverm(res,2,'g','LineWidth',1);
-            drawnow
+            % quiverm(res,2,'g','LineWidth',1);
+            % quiverm(res,2,'g');
+            % drawnow
             %    F(:,fileind) = getframe;
             hold off;
         end
@@ -912,7 +913,7 @@ guidata(hObject,handles);
 
 
 % --- Executes on button press in button_select.
-function button_select_Callback(hObject, eventdata, handles)
+function button_select_Callback(hObject, ~, handles)
 % hObject    handle to button_select (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -935,32 +936,6 @@ if isfield(handles,'rect')
 end
 guidata(handles.figure1,handles);
 
-function quiverm(x,varargin)
-% QUIVERM - plots quiver plot of matrix,
-% assuming first column as X, second as Y
-% third as U, and forth as V.
-%
-% QUIVERM(A,'r') - plots quiver plot
-% of matrix A.
-% Used by QUIVERTXT function.
-%
-%
-%
-% Author: Alex Liberzon
-% Modified at 23.06.05, to show only 'normal' vectors,
-% without outliers.
-% on IHW_Video
-
-if isstr(x)
-    x = eval(x);
-end
-
-x(abs(x(:,3)) > prctile(abs(x(:,3)),90),3) = NaN;
-x(abs(x(:,4)) > prctile(abs(x(:,4)),90),4) = NaN;
-quiver(x(:,1),x(:,2),x(:,3),x(:,4),varargin{1:end});
-
-% quiver(x(:,1),x(:,2),x(:,3),x(:,4),varargin{:});
-return
 
 
 % --- Executes on button press in prev_image.
@@ -1282,130 +1257,11 @@ c(c<0) = 0;
 
 return
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [peakx,peaky,s2n] = sub_pixel_velocity_rect(c,pixi,pixj,peak1,peak2,s2nl,sclt,ittWidth,ittHeight)
-% SUB_PIXEL_VELOCITY - Calculates Signal-To-Noise Ratio, fits Gaussian
-% bell, find sub-pixel displacement and scales it to the real velocity
-% according the the time interval and real-world-to-image-scale.
-%
-% Authors: Alex Liberzon & Roi Gurka
-% Date: Jul-20-99
-% Last Modified:
-
-% If peak2 equals to zero, it means that nothing was found,
-% and we'll divide by zero:
-if ~peak2
-    s2n = Inf;		% Just to protect from zero dividing.
-else
-    s2n = peak1/peak2;
-end
-
-% If Signal-To-Noise ratio is lower than the limit, "mark" it:
-if s2n < s2nl
-    peakx = ittHeight;
-    peaky = ittWidth;
-else            % otherwise, calculate the velocity
-
-    % Sub-pixel displacement definition by means of
-    % Gaussian bell.
-
-    if pixi < 2 || pixi > size(c,1) - 2 || pixj < 2 || pixj > size(c,2) - 2
-        peakx = ittHeight;
-        peaky = ittWidth;
-        return
-    end
-
-    try
-        f0 = log(c(pixi,pixj));
-        f1 = log(c(pixi-1,pixj));
-        f2 = log(c(pixi+1,pixj));
-        peakx = pixi + (f1-f2)/(2*f1-4*f0+2*f2);
-        f0 = log(c(pixi,pixj));
-        f1 = log(c(pixi,pixj-1));
-        f2 = log(c(pixi,pixj+1));
-        peaky = pixj+ (f1-f2)/(2*f1-4*f0+2*f2);
-    catch
-        peakx = ittHeight;
-        peaky = ittWidth;
-    end
-
-    if ~isreal(peakx) || ~isreal(peaky)
-        peakx = ittHeight;
-        peaky = ittWidth;
-    end
-
-end
 
 
-return
 
 
-function [peak1,peak2,pixi,pixj] = find_displacement_rect(c,s2ntype)
-% FIND_DISPLACEMENT - Finds the highest peak in cross-correlation
-% matrix and the second peak (or mean value) for signal-to-noise
-% ratio calculation.
-% Inputs:
-%         c - cross-correlation matrix
-%         s2ntype - method (1 or 2) of S2N ratio calculation
-% Outputs:
-%         peak1 = highest peak
-%         peak2 = second highest peak (or mean value)
-%         pixi,pixj = row,column indeces of the peak1
-%
-% Authors: Alex Liberzon & Roi Gurka
-% Date: 20-Jul-99
-% Last modified:
-%
 
-% Find your majour peak = mean pixel displacement between
-% two interrogation areas:
-
-[NfftHeight,NfftWidth] = size(c);
-
-[tmp,tmpi] = max(c);
-[peak1, pixj] = max(tmp);
-pixi = tmpi(pixj);
-
-
-% Temproraly matrix without the maximum peak:
-tmp = c;
-tmp(pixi,pixj) = 0;
-% If the peak is found on the border, we should not accept it:
-if pixi==1 || pixj==1 || pixi == NfftHeight || pixj == NfftWidth
-    peak2 = peak1; % we'll not accept this peak later, by means of SNR
-else
-    % Look for the Signal-To-Noise ratio by
-    % 1. Peak detectability method: First-to-second peak ratio
-    % 2. Peak-to-mean ratio - Signal-to-noise estimation
-
-    if s2ntype == 1		% First-to-second peak ratio
-        % Remove 3x3 pixels neighbourhood around the peak
-        tmp(pixi-1:pixi+1,pixj-1:pixj+1) = NaN;
-        % Look for the second highest peak
-        peak2 = max(tmp(:));
-        [x2,y2] = find(tmp==peak2);
-        tmp(x2,y2) = NaN;
-        % Only if second peak is within the borders
-        if x2 > 1 && y2 > 1 && x2 < NfftHeight && y2 < NfftWidth
-
-            % Look for the clear (global) peak, not for a local maximum:
-            while peak2 < max(max(c(x2-1:x2+1,y2-1:y2+1)))
-                peak2 = max(tmp(:));
-                [x2,y2] = find(tmp==peak2);
-                if x2 == 1 || y2==1 || x2 == NfftHeight || y2 == NfftWidth
-                    peak2 = peak1;	% will throw this one out later
-                    break;
-                end
-                tmp(x2,y2) = NaN;
-            end		% end of while
-        else			% second peak on the border means "second peak doesn't exist"
-            peak2 = peak1;
-        end    % if x2 >1 ......end
-        % PEAK-TO-MEAN VALUE RATIO:
-    elseif s2ntype == 2
-        peak2 = mean2(abs(tmp));
-    end		% end of second peak search, both methods.
-end				% end of if highest peak on the border
-return
 
 % --------------------------------------------------------------------
 function exit_Callback(hObject, eventdata, handles)
@@ -1475,3 +1331,54 @@ handles.preprocess = preprocess_mfile(1:end-2);
 guidata(handles.figure1,handles);
 
 
+
+
+% --- Executes on button press in checkbox2.
+function checkbox2_Callback(hObject, eventdata, handles)
+% hObject    handle to checkbox2 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of checkbox2
+% Hint: get(hObject,'Value') returns toggle state of checkbox1
+if get(hObject,'Value')
+    % if checked
+    set(handles.pushbutton9,'Enable','on');
+else
+    set(handles.pushbutton9,'Enable','off');
+end
+
+
+% --- Executes on button press in pushbutton9.
+function pushbutton9_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton9 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+filter_mfile = uigetfile('*.m','Pick an M-file');
+handles.filter = filter_mfile(1:end-2);
+guidata(handles.figure1,handles);
+
+
+% --- Executes on button press in checkbox3.
+function checkbox3_Callback(hObject, eventdata, handles)
+% hObject    handle to checkbox3 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of checkbox3
+if get(hObject,'Value')
+    % if checked
+    set(handles.pushbutton10,'Enable','on');
+else
+    set(handles.pushbutton10,'Enable','off');
+end
+
+
+% --- Executes on button press in pushbutton10.
+function pushbutton10_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton10 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+filter_mfile = uigetfile('*.m','Pick an M-file');
+handles.smooth = smooth_mfile(1:end-2);
+guidata(handles.figure1,handles);
