@@ -462,9 +462,10 @@ end
 set(handles.figure1,'pointer','watch')
 
 
-image1 = fullfile(handles.path,handles.files{1});
-image2 = fullfile(handles.path,handles.files{2});
-[a,b,a1,b1] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+% image1 = fullfile(handles.path,handles.files{1});
+% image2 = fullfile(handles.path,handles.files{2});
+% [a,b,a1,b1] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+[a,b,a1,b1] = read_pair_of_images_rect(handles,1,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
 if isempty(a) || isempty(b)
     errordlg('Something wrong with your images')
 end
@@ -478,11 +479,12 @@ switch handles.filesType
             %             set(handles.edit_num,'string',sprintf('%d/%d',fileind,handles.amount-jump));
             set(handles.edit_num,'string',sprintf('%d',fileind));
             
-            image1 = fullfile(handles.path,handles.files{fileind});
-            image2 = fullfile(handles.path,handles.files{fileind+jump});
+            % image1 = fullfile(handles.path,handles.files{fileind});
+            % image2 = fullfile(handles.path,handles.files{fileind+jump});
             
-            [a,b,a1,b1,origin] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
-            
+            [a,b,a1,b1,origin] = read_pair_of_images_rect(handles,fileind,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+            % [a,b,a1,b1,origin] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+
             a1 = prepfun(a1);
             b1 = prepfun(b1);
             
@@ -503,7 +505,7 @@ switch handles.filesType
             %%%%%% Start the loop for each interrogation block %%%%%%%
             axes(handles.axes1);
             % imshow(imadjust(a),[]);
-            imshow(prepfun(a),[]);
+            imshow(prepfun(a));
             hold on
                         
             for m = 1:ovlapVer:verSize - ittHeight + 1 % vertically
@@ -635,11 +637,12 @@ switch handles.filesType
             %             set(handles.edit_num,'string',sprintf('%d/%d',fileind,handles.amount));
             set(handles.edit_num,'string',sprintf('%d',fileind));
             
-            image1 = fullfile(handles.path,handles.files{fileind});
-            image2 = fullfile(handles.path,handles.files{fileind+1});
+            % image1 = fullfile(handles.path,handles.files{fileind});
+            % image2 = fullfile(handles.path,handles.files{fileind+1});
             
-            [a,b,a1,b1,origin] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
-            
+            % [a,b,a1,b1,origin] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+            [a,b,a1,b1,origin] = read_pair_of_images_rect(handles,fileind,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+
             a1 = prepfun(a1);
             b1 = prepfun(b1);
             
@@ -658,7 +661,7 @@ switch handles.filesType
             
             axes(handles.axes1);
             % imshow(imadjust(a),[]);
-            imshow(prepfun(a),[]);
+            imshow(prepfun(a));
             hold on
             
             for m = 1:ovlapVer:verSize - ittHeight + 1 % vertically
@@ -1247,30 +1250,32 @@ function wiki_Callback(hObject, eventdata, handles)
 web('http://sourceforge.net/apps/trac/openpiv/wiki', '-new');
 
 
-function im = openpiv_imread(handles,filenum)
-% openpiv_imread encapsulates all the image reading functions
-% that can be imread for 'jpg','bmp', etc. or 'tiffread2' for TIFF
-% images from Insight (tm) 
-% Usage:
-% >>  im = openpiv_imread(handles,file_number);
-% >>  imshow(im);
-
-try 
-    im = imread(fullfile(handles.path,handles.files{filenum}));
-catch
-    tmp = tiffread2(fullfile(handles.path,handles.files{filenum}));
-    im = im2double(tmp.data);
-end
-
-if length(size(im)) == 3
-    im = rgb2gray(im);
-end
-
-% Custom pre-processing of images, default = 'imadjust'
-preprocess = get(handles.checkbox_preprocess,'Value');
-if preprocess
-    prepfun = str2func(handles.preprocess);
-else
-    prepfun = inline('imadjust(x)'); % default is to stretch the image
-end
-im = prepfun(im);
+% function im = openpiv_imread(handles,filenum)
+% % openpiv_imread encapsulates all the image reading functions
+% % that can be imread for 'jpg','bmp', etc. or 'tiffread2' for TIFF
+% % images from Insight (tm) 
+% % Usage:
+% % >>  im = openpiv_imread(handles,file_number);
+% % >>  imshow(im);
+% 
+% try 
+%     im = imread(fullfile(handles.path,handles.files{filenum}));
+% catch
+%     tmp = tiffread2(fullfile(handles.path,handles.files{filenum}));
+%     im = im2double(tmp.data);
+% end
+% 
+% if length(size(im)) == 3
+%     im = rgb2gray(im);
+% end
+% 
+% % Custom pre-processing of images, default = 'imadjust'
+% preprocess = get(handles.checkbox_preprocess,'Value');
+% if preprocess
+%     prepfun = str2func(handles.preprocess);
+% else
+%     prepfun = inline('medfilt2(x)'); %default is none 
+%     % previous default was:
+%     % inline('imadjust(x)'); % default is to stretch the image
+% end
+% im = prepfun(im);
