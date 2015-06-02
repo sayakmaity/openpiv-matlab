@@ -2,7 +2,6 @@ function varargout = openpivgui(varargin)
 % OPENPIVGUI M-file for openpivgui.fig
 %      OPENPIVGUI, by itself, creates a new OPENPIVGUI or raises the existing
 %      singleton*.
-%re
 %      H = OPENPIVGUI returns the handle to a new OPENPIVGUI or the handle to
 %      the existing singleton*.
 %
@@ -389,7 +388,7 @@ set(handles.axes1,'Units','pixels');
 % else
 %     prepfun = inline('imadjust(x)');
 % end
-% 
+%
 % try
 %     % imshow(fullfile(handles.path,handles.files{1}));
 %     tmp = imread(fullfile(handles.path,handles.files{1}));
@@ -465,7 +464,7 @@ set(handles.figure1,'pointer','watch')
 
 image1 = fullfile(handles.path,handles.files{1});
 image2 = fullfile(handles.path,handles.files{2});
-[a,b,a1,b1] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
+[a,b] = read_pair_of_images_rect(image1,image2,cropvec,ittWidth,ittHeight,ovlapHor,ovlapVer);
 if isempty(a) || isempty(b)
     errordlg('Something wrong with your images')
 end
@@ -488,120 +487,14 @@ switch handles.filesType
             b1 = prepfun(b1);
             
             
-            [verSize,horSize]= size(a1);
-            
-            % Prepare the results storage;
-            numcols = floor((horSize-ittWidth)/ovlapHor+1);
-            numrows = floor((verSize-ittHeight)/ovlapVer+1);
-            res = zeros(numcols*numrows,5);
-            resind = 0;
-            
-            a2 = zeros(ittHeight,ittWidth);
-            b2 = zeros(ittHeight,ittWidth);
-            NfftWidth = 2*ittWidth;
-            NfftHeight = 2*ittHeight;
-            
             %%%%%% Start the loop for each interrogation block %%%%%%%
             axes(handles.axes1);
             % imshow(imadjust(a),[]);
             imshow(prepfun(a),[]);
             hold on
-                        
-            for m = 1:ovlapVer:verSize - ittHeight + 1 % vertically
-                for k = 1:ovlapHor:horSize-ittWidth+1 % horizontally
-                    if (get(hObject,'UserData') == 1)
-                        a2 = a1(m:m+ittHeight-1,k:k+ittWidth-1);
-                        b2 = b1(m:m+ittHeight-1,k:k+ittWidth-1);
-                        
-                        %                         a2 = prepfun(a2);
-                        %                         b2 = prepfun(b2);
-                        
-                        c = cross_correlate_rect(a2,b2,NfftHeight,NfftWidth);
-                        % c = cross_correlate_rect(a2,b2,Nfftx,Nffty);
-                        if ~any(c(:)), % completely "black"
-                            u = 0;
-                            v = 0;
-                            y = origin(2) + m + ittHeight/2 - 1;
-                            x = origin(1) + k + ittWidth/2 -  1;
-                            resind = resind + 1;
-                            s2n = 0; 
-                            res(resind,:) = [x y u v s2n];
-                            continue
-                        end
-                        
-                        [peak1,peak2,pixi,pixj] = find_displacement_rect(c,s2ntype);
-                        
-                        [peakVer,peakHor,s2n] = sub_pixel_velocity_rect(c,pixi,pixj,peak1,peak2,s2nl,ittWidth,ittHeight);
-                        
-                        % Scale the pixel displacement to the velocity
-                        u = (ittWidth-peakHor);
-                        v = (ittHeight-peakVer);
-                        y = origin(2) + m + ittHeight/2-1;
-                        x = origin(1) + k + ittWidth/2-1;
-                        
-                        resind = resind + 1;
-                        res(resind,:) = [x y u v s2n];
-                        % quiver(x+cropvec(1),y+cropvec(2),u,v,'y');
-                        if u ~= 0 || v ~= 0
-                            %                             quiver(x,y,u,v,5,'y','Linewidth',1);
-                            %                             drawnow;
-                            plotarrow(x,y,u,v,'g',10);
-                            % drawnow
-                        end
-                    end
-                end
-            end
             
+            [res,no_filt_res,filt_res,numrows,numcols] = piv(a1,b1,ittWidth,ittHeight,ovlapHor,ovlapVer,s2ntype,s2nl,origin,outl,sclt,dt,hObject);
             
-            
-            % NO_FILT_RES will be stored in '.._noflt.txt' file at the end of program
-            no_filt_res = res;
-            
-            
-            
-            % Reshape U and V matrices in two-dimensional grid and produce
-            % velocity vector in U + i*V form (real and imaginary parts):
-            
-            u = reshape(res(:,3), numrows,numcols);
-            v = reshape(res(:,4), numrows,numcols);
-            vector = u + sqrt(-1)*v;
-            
-            % Remove outlayers - GLOBAL FILTERING
-            vector(abs(vector)>mean(abs(vector(vector~=0)))*outl) = 0;
-            u = real(vector);
-            v = imag(vector);
-            
-            % Adaptive Local Median filtering
-            
-            kernel = [-1 -1 -1; -1 8 -1; -1 -1 -1];
-            tmpv = abs(conv2(v,kernel,'same'));
-            tmpu = abs(conv2(u,kernel,'same'));
-            
-            % WE HAVE TO DECIDE WHICH LIMIT TO USE:
-            % 1. Mean + 3*STD for each one separately OR
-            % 2. For velocity vector length (and angle)
-            % 3. OR OTHER.
-            
-            lmtv = mean(tmpv(tmpv~=0)) + 3*std(tmpv(tmpv~=0));
-            lmtu = mean(tmpu(tmpu~=0)) + 3*std(tmpu(tmpu~=0));
-            
-            u_out = find(tmpu>lmtu);
-            v_out = find(tmpv>lmtv);
-            
-            % Let's throw the outlayers out:
-            u(u_out) = 0; u(v_out) = 0;
-            v(v_out) = 0; v(u_out) = 0;
-            vector = u + sqrt(-1)*v;
-            
-            res(:,3) = reshape(real(vector),numrows*numcols,1);
-            res(:,4) = reshape(imag(vector),numrows*numcols,1);
-            
-            % Filtered results will be stored in '.._flt.txt' file
-            filt_res = res;
-            
-            vector = fill_holes(vector,numrows,numcols);
-            res(:,3) = reshape(real(vector),numrows*numcols,1);
-            res(:,4) = reshape(imag(vector),numrows*numcols,1);
             
             
             % scale the pixels and apply the dt
@@ -623,7 +516,7 @@ switch handles.filesType
             else
                 tUnits = 'dt';
             end
-                        
+            
             % Save results as ASCII (text) files:
             % Final (filtered, interpolated) results
             % fid = fopen([dirname,filesep,filenames(fileind,1:end-4),baseext],'w');
@@ -638,10 +531,10 @@ switch handles.filesType
             nofilt = fullfile(handles.path,[basename,'_noflt.txt']);
             write_openpiv_vec(nofilt,no_filt_res,xUnits,tUnits,numrows,numcols);
             
-
+            
             % Filtered, but not interpolated:
             filtered = fullfile(handles.path,[basename,'_flt.txt']);
-            write_openpiv_vec(filtered,filt_res,xUnits,tUnits,numrows,numcols); 
+            write_openpiv_vec(filtered,filt_res,xUnits,tUnits,numrows,numcols);
             
             
             % Results visualization
@@ -652,6 +545,7 @@ switch handles.filesType
             %             drawnow
             %    F(:,fileind) = getframe;
             hold off;
+            
         end
     case{'pairs'}
         for fileind = 1:2:handles.amount	% main loop, for whole file list
@@ -668,121 +562,15 @@ switch handles.filesType
             a1 = prepfun(a1);
             b1 = prepfun(b1);
             
-            [verSize,horSize]= size(a1);
             
-            % Prepare the results storage;
-            numcols = floor((horSize-ittWidth)/ovlapHor+1);
-            numrows = floor((verSize-ittHeight)/ovlapVer+1);
-            res = zeros(numcols*numrows,5);
-            resind = 0;
             
-            a2 = zeros(ittHeight,ittWidth);
-            b2 = zeros(ittHeight,ittWidth);
-            NfftWidth = 2*ittWidth;
-            NfftHeight = 2*ittHeight;
-            
+            %%%%%% Start the loop for each interrogation block %%%%%%%
             axes(handles.axes1);
             % imshow(imadjust(a),[]);
             imshow(prepfun(a),[]);
             hold on
             
-            for m = 1:ovlapVer:verSize - ittHeight + 1 % vertically
-                for k = 1:ovlapHor:horSize-ittWidth+1 % horizontally
-                    % if Stop button pressed:
-                    if (get(handles.pushbutton_start,'UserData') == 0)
-                        return;
-                    end
-                    
-                    a2 = a1(m:m+ittHeight-1,k:k+ittWidth-1);
-                    b2 = b1(m:m+ittHeight-1,k:k+ittWidth-1);
-                    
-                    
-                    c = cross_correlate_rect(a2,b2,NfftHeight,NfftWidth);
-                    % c = cross_correlate_rect(a2,b2,Nfftx,Nffty);
-                    if ~any(c(:)), % completely "black"
-                        u = 0;
-                        v = 0;
-                        y = origin(1) + m + ittHeight/2 - 1;
-                        x = origin(2) + k + ittWidth/2 -  1;
-                        continue
-                    end
-                    
-                    [peak1,peak2,pixi,pixj] = find_displacement_rect(c,s2ntype);
-                    
-                    [peakVer,peakHor,s2n] = sub_pixel_velocity_rect(c,pixi,pixj,peak1,peak2,s2nl,ittWidth,ittHeight);
-                    
-                    % Scale the pixel displacement to the velocity
-                    u = (ittWidth-peakHor);
-                    v = (ittHeight-peakVer);
-                    y = origin(2) + m + ittHeight/2-1;
-                    x = origin(1) + k + ittWidth/2-1;
-                    
-                    resind = resind + 1;
-                    res(resind,:) = [x y u v s2n];
-                    % quiver(x+cropvec(1),y+cropvec(2),u,v,'y');
-                    if u ~= 0 || v ~= 0
-                        %                             quiver(x,y,u,v,5,'y','Linewidth',1);
-                        %                             drawnow;
-                        plotarrow(x,y,u,v,'g',10);
-                        % draw_arrow([x,y],[x+u,y+v],20)
-                        % drawnow
-                    end
-                end
-            end
-            
-            
-            
-            % NO_FILT_RES will be stored in '.._noflt.txt' file at the end of program
-            no_filt_res = res;
-            
-            % Reshape U and V matrices in two-dimensional grid and produce
-            % velocity vector in U + i*V form (real and imaginary parts):
-            
-            u = reshape(res(:,3), numrows,numcols);
-            v = reshape(res(:,4), numrows,numcols);
-            vector = u + sqrt(-1)*v;
-            
-            % Remove outlayers - GLOBAL FILTERING
-            ind = isfinite(abs(vector)) & abs(vector) ~= 0;
-            limit = mean(abs(vector(ind)))*outl;
-            outliers = abs(vector) > limit;
-            vector(outliers) = 0;
-            u = real(vector);
-            v = imag(vector);
-            
-            % Adaptive Local Median filtering
-            kernel = [-1 -1 -1; -1 8 -1; -1 -1 -1];
-            tmpv = abs(conv2(v,kernel,'same'));
-            tmpu = abs(conv2(u,kernel,'same'));
-            
-            % WE HAVE TO DECIDE WHICH LIMIT TO USE:
-            % 1. Mean + 3*STD for each one separately OR
-            % 2. For velocity vector length (and angle)
-            % 3. OR OTHER.
-            ind = isfinite(abs(tmpv)) & abs(tmpv) ~= 0;
-            lmtv = mean(tmpv(ind)) + 3*std(tmpv(ind));
-            
-            ind = isfinite(abs(tmpu)) & abs(tmpu) ~= 0;
-            lmtu = mean(tmpu(ind)) + 3*std(tmpu(ind));
-            
-            u_out = find(tmpu>lmtu);
-            v_out = find(tmpv>lmtv);
-            
-            % Let's throw the outlayers out:
-            u(u_out) = 0; u(v_out) = 0;
-            v(v_out) = 0; v(u_out) = 0;
-            vector = u + sqrt(-1)*v;
-            
-            res(:,3) = reshape(real(vector),numrows*numcols,1);
-            res(:,4) = reshape(imag(vector),numrows*numcols,1);
-            
-            % Filtered results will be stored in '.._flt.txt' file
-            filt_res = res;
-            
-            vector = fill_holes(vector,numrows,numcols);
-            res(:,3) = reshape(real(vector),numrows*numcols,1);
-            res(:,4) = reshape(imag(vector),numrows*numcols,1);
-            
+             [res,no_filt_res,filt_res,numrows,numcols] = piv(a1,b1,ittWidth,ittHeight,ovlapHor,ovlapVer,s2ntype,s2nl,origin,outl,sclt,dt,hObject);
             
             % scale the pixels and apply the dt
             
@@ -803,7 +591,7 @@ switch handles.filesType
             else
                 tUnits = 'dt';
             end
-                        
+            
             % Save results as ASCII (text) files:
             % Final (filtered, interpolated) results
             % fid = fopen([dirname,filesep,filenames(fileind,1:end-4),baseext],'w');
@@ -818,10 +606,10 @@ switch handles.filesType
             nofilt = fullfile(handles.path,[basename,'_noflt.txt']);
             write_openpiv_vec(nofilt,no_filt_res,xUnits,tUnits,numrows,numcols);
             
-
+            
             % Filtered, but not interpolated:
             filtered = fullfile(handles.path,[basename,'_flt.txt']);
-            write_openpiv_vec(filtered,filt_res,xUnits,tUnits,numrows,numcols); 
+            write_openpiv_vec(filtered,filt_res,xUnits,tUnits,numrows,numcols);
             
             
             % Results visualization
@@ -832,6 +620,7 @@ switch handles.filesType
             %             drawnow
             %    F(:,fileind) = getframe;
             hold off;
+            
         end
     otherwise
         
@@ -1296,12 +1085,12 @@ web('http://www.openpiv.net/faq.html', '-new');
 function im = openpiv_imread(handles,filenum)
 % openpiv_imread encapsulates all the image reading functions
 % that can be imread for 'jpg','bmp', etc. or 'tiffread2' for TIFF
-% images from Insight (tm) 
+% images from Insight (tm)
 % Usage:
 % >>  im = openpiv_imread(handles,file_number);
 % >>  imshow(im);
 
-try 
+try
     im = imread(fullfile(handles.path,handles.files{filenum}));
 catch
     tmp = tiffread2(fullfile(handles.path,handles.files{filenum}));
