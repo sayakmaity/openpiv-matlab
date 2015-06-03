@@ -22,7 +22,8 @@ for m = 1:ovlapVer:verSize - ittHeight + 1 % vertically
             %                         a2 = prepfun(a2);
             %                         b2 = prepfun(b2);
             
-            c = cross_correlate_rect(a2,b2,NfftHeight,NfftWidth);
+            c = cross_correlate_rect_cfft(a2,b2,NfftHeight,NfftWidth);
+            % c = cross_correlate_rect(a2,b2,NfftHeight,NfftWidth);
             % c = cross_correlate_rect(a2,b2,Nfftx,Nffty);
             if ~any(c(:)), % completely "black"
                 u = 0;
