@@ -1026,7 +1026,7 @@ resind = 0;
 NfftWidth = 2*ittWidth;
 NfftHeight = 2*ittHeight;
 
-axes(handles.axes1);
+axes(handles.axes1); %#ok<MAXES>
 % imshow(imadjust(a),[]);
 imshow(prepfun(a),[]);
 hold on
