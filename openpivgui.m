@@ -379,6 +379,7 @@ function load_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 [handles.files,handles.path] = readImDir;
 % set(handles.edit_dir,'String',handles.path);
+handles.axes1 = findobj(handles.figure1,'type','axes');
 axes(handles.axes1);
 set(handles.axes1,'visible','off');
 set(handles.axes1,'Units','pixels');
@@ -1025,7 +1026,7 @@ for m = rows % vertically
         
         c = cross_correlate_rect(a2,b2,NfftHeight,NfftWidth);
         % c = cross_correlate_rect(a2,b2,Nfftx,Nffty);
-        if ~any(c(:)), % completely "black"
+        if ~any(c(:)) % completely "black"
             u = 0;
             v = 0;
             y = origin(2) + m + ittHeight/2 - 1;
@@ -1066,7 +1067,7 @@ clearpoints(h2);
 % end
 quiverm(res,'color','g','AutoScaleFactor',2);
 ind = (filt_res(:,3) ~= no_filt_res(:,3) | filt_res(:,4) ~= no_filt_res(:,4));
-if ~any(ind)
+if any(ind)
     quiverm(no_filt_res(ind,:),'color','r','AutoScaleFactor',1.25);
 end
 % for i = 1:length(res)
