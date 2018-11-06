@@ -480,15 +480,14 @@ switch handles.filesType
     ittHeight,ovlapHor,ovlapVer, prepfun, s2ntype, s2nl, outl, sclt, dt)
         end
         toc
-        beep
-       
-      %{ 
+             
+      
     case{'pairs'}
-        parfor fileind = 1:2:handles.amount	% main loop, for whole file list
+        for fileind = 1:2:handles.amount	% main loop, for whole file list
             openpiv_main_loop(handles, fileind, 1, cropvec,ittWidth,...
     ittHeight,ovlapHor,ovlapVer, prepfun, s2ntype, s2nl, outl, sclt, dt)
         end
-        %}
+       
     otherwise
         
 end
